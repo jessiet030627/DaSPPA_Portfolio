@@ -1,0 +1,323 @@
+---
+title: "Lecture 4 note"
+author: "Yujia Tao"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+# Demo
+
+## 0.Load the `tidyverse` Packages
+
+## Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r}
+library(tidyverse)
+```
+
+## 1.Import and export the V-Dem data
+
+```{r}
+d<-read_csv("_DataPublic_/vdem/1984_2022/vdem_1984_2022_external.csv")
+```
+
+## 2.Select Economic Development Indicators
+
+```{r}
+View(d)
+```
+
+Firstly, we look at the identifiers of the data （筛选单一条件，a subset of column）
+
+```{r}
+names(d)
+```
+
+```{r}
+d |> select(country_name, country_id, year) |> 
+  distinct()
+```
+
+```{r}
+# Which countries are in this dataset?
+d |> select(country_name) |> 
+  distinct()
+```
+
+Then, select both the country identifiers, GDP, and GDP per capita （\*\*\*筛选多个条件）
+
+```{r}
+d_gdp <- d|>select(country_name, country_id,year, e_gdp,e_gdppc)
+d_gdp
+```
+
+## 3.0 Rename columns to make names informative (重命名一定要Assignment)
+
+```{r}
+d_gdp <- d_gdp |>
+  rename("GDP" = "e_gdp", "GDP_per_capita" = "e_gdppc", "Country" = "country_name", "ID" = "country_id", "Year" = "year")
+view(d_gdp)
+```
+
+## 4.Slice Rows (排序)
+
+```{r}
+d_gdp |>
+  slice_min(order_by = GDP, n = 5)
+```
+
+```{r}
+#Want countries-years with highest GDP
+d_gdp |> 
+  slice_max(order_by = GDP, n = 10)
+d_gdp |>
+  slice_max(order_by = GDP, n = 5)
+```
+
+```{r}
+set.seed(52)
+d_gdp |>slice_sample(n=10)
+```
+
+```{r}
+set.seed(52)
+d_gdp |> slice_sample(prop = 0.1)
+```
+
+## 5. Subset data by row (列内筛选 subset of a row)
+
+```{r}
+#Want 2000-2005 data
+d_gdp |> 
+  filter(Year >= 2000 & Year <= 2005)
+```
+
+```{r}
+d_gdp|>filter(Country== "China")
+```
+
+```{r}
+# Want: 
+d_gdp |> filter(Year >= 2000 & Year <-2022)
+```
+
+```{r}
+d_gdp |> filter(Country = "China")
+```
+
+```{r}
+d_gdp |> filter(Year >= 2000 & Year<= 2005) |> filter(Country = "China")
+```
+
+## 6.Arrange （升降序）
+
+#从低到高
+
+```{r}
+#Want: sort the row by GDP per capita
+d_gdp|>arrange(GDP_per_capita)
+```
+
+#从高到低
+
+```{r}
+d_gdp |> arrange(-GDP_per_capita)
+```
+
+## 7.Perform (4), (5), (6) group by group:
+
+```{bash}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+#want: For each country, we want the year with highest GDP
+
+d_gdp|>
+   group_by(Country) |>
+   slice_max(order_by= GDP, n = 1)
+```
+
+```{r}
+#How many entries are there for each country
+d_gdp |>
+   group_by(Country) |>
+   count()
+?count
+```
+
+```{r}
+# Want: For each country, get the year when it has worst GDP
+d_gdp |> 
+  group_by(Country) |>
+  slice_min(order_by = GDP, n=1)
+```
+
+## 8. Create new columns in the data: group_by, mutate and ungroup
+
+```{r}
+d_gdp|> 
+  mutate(New=1)
+d_gdp|>
+ mutate(New=GDP)
+d_gdp|> 
+  mutate(New=log(GDP))
+d_gdp|>
+  mutate(New=log(GDP)+1)
+  
+```
+
+```{r}
+#want: new column to be GDP relative to average GDP in the world 1984-2022
+d_gdp|> mutate(GDP_over_average = GDP/mean(GDP, na.rm = TRUE))
+ 
+```
+
+```{r}
+d_gdp|> 
+  group_by(Country)|>
+  mutate(New=log(GDP))
+```
+
+Task: Add the following economic indicators to the data:
+
+1.  Country-year development level with reference to that of 1984.
+
+2.  Year-on-year economic growth.
+
+```{r}
+# Country-year development level with reference to that of 1984. 
+?first
+
+d_gdp
+```
+
+```{r}
+d_gdp |>
+  group_by(Country) |>
+  arrange(Year) |>
+  mutate(GDP_over_1984=GDP/first(GDP)) |>
+  ungroup()|>
+  arrange(Country,Year) 
+  
+```
+
+```{r}
+#country-year development level with reference to that of 1984. 
+d_gdp
+```
+
+```{r}
+#year-on-year economic development
+d_gdp|>
+  group_by(Country)|> 
+  arrange(Year) |> 
+  mutate(GDP_yoy_change=GDP -lag(GDP, n=1))|>
+  ungroup()|>
+  arrange(Country, Year)
+```
+
+## 9.Summarize the data
+
+```{r}
+#want: Average GDP level of the world
+d_gdp|> summarise(gdp_average=mean(GDP,na.rm=TRUE),
+                  GDP_per_capita_average= mean(GDP_per_capita,na.rm = TRUE))
+```
+
+```{r}
+d_gdp|>
+  group_by(Country)|>
+  summarise(gdp_average= mean(GDP,na.rm=TRUE)), 
+  GDPpc_average = mean(GDP_per_capita,na.rm=TRUE)
+```
+
+```{r}
+#GDP growth and GDP per capita growth: 2020 over 1984
+d_gdp |>
+  filter(Year>=1984 & Year<=2020)|>
+  group_by(Country)|>
+  arrange(Year) |>
+  summarise(GDP_growth_2020_1984)=(last(GDP)-first(GDP)/fisrt(GDP))
+  GDPpc_growth_2020_1984 = (last(GDP_per_capita)-first(GDP_per_capita))/fisrt(GDP_growth_capita) |>
+  ungroup() |>
+  arrange(Country)
+```
+
+```{r}
+#Data integrity check 
+ d_gdp|>
+   group_by(Country) |>
+   mutate(GDP_missing= as.numeric(is.na(GDP)),.after=GDP)|>
+   group_by(Country)|>
+   summarise(N_GDP_missing) = sum(GDP_missing)
+```
+
+## Final Notes
+
+### Pipe
+
+```{r}
+# STEP 1: Subset variables
+d_gdp <- d |> select(country_name, country_id, year, e_gdp, e_gdppc)
+
+# STEP 2: Rename variables
+d_gdp_renamed <- d_gdp |>
+  rename("GDP" = "e_gdp", "GDP_per_capita" = "e_gdppc",
+         "Country" = "country_name", "ID" = "country_id",
+         "Year" = "year")
+
+# STEP 3: Filter down to China
+d_gdp_china <- d_gdp_renamed |> filter(Country == "China")
+
+# STEP 4: Filter down to 2000 - 2005
+d_gdp_china_2000_2005 <- d_gdp_china |> filter(Year >= 2000 & Year <= 2005)
+
+d_gdp_china_2000_2005
+```
+
+```{r}
+rm(d_gdp, d_gdp_renamed, d_gdp_china, d_gdp_china_2000_2005)
+
+d_gdp_china_2000_2005 <- d |>
+  # Subset variables
+  select(country_name, country_id, year, e_gdp, e_gdppc) |>
+  # Rename variables
+  rename("GDP" = "e_gdp", "GDP_per_capita" = "e_gdppc",
+         "Country" = "country_name", "ID" = "country_id",
+         "Year" = "year") |>
+  # Filter only observations from China
+  filter(Country == "China") |>
+  # Filter 2000 - 2005
+  filter(Year >= 2000 & Year <= 2005)
+```
