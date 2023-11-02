@@ -1,0 +1,315 @@
+---
+title: "Lecture6_DataWrangling_3"
+author: "Yujia Tao"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+# Example: The V-Dem data
+
+```{r}
+library(tidyverse) 
+d <- read_csv("_DataPublic_/vdem/1984_2022/vdem_1984_2022_external.csv")
+d |> print(n = 3)
+```
+
+```{r}
+d_gdp <- d |> 
+  select(country_text_id, year, e_gdp, e_gdppc) |>
+  rename("gdp" = "e_gdp", "gdppc" = "e_gdppc")
+```
+
+```{r}
+d_gdp |> print(n = 3)
+```
+
+# Reshape a Table
+
+```{r}
+#Wide to long 
+d_gdp_long <- d_gdp |>
+  pivot_longer(cols = c("gdp", "gdppc"), 
+               names_to = "variable", values_to = "value")
+
+d_gdp_long |> print(n = 4)
+```
+
+```{r}
+#Long to wide 
+d_gdp_wide_1 <- d_gdp_long |>
+  pivot_wider(names_from = "variable", values_from = "value")
+
+d_gdp_wide_1 |> print(n = 4)
+```
+
+```{r}
+d_gdp_wide_2 <- d_gdp_long |>
+  pivot_wider(names_from = "year", values_from = "value")
+
+d_gdp_wide_2 |> print(n = 2)
+```
+
+```{r}
+d_gdp_wide_3 <- d_gdp_long |>
+  pivot_wider(names_from = "country_text_id", values_from = "value")
+
+d_gdp_wide_3 |> print(n = 2)
+```
+
+# Merge data with other data sets
+
+```{r}
+d_gdp_1945 <- 
+  read_csv("_DataPublic_/vdem/1945_1983/vdem_1945_1983_external.csv") |>
+  select(country_text_id, year, e_gdp, e_gdppc) |>
+  rename("gdp" = "e_gdp", "gdppc" = "e_gdppc")
+
+d_gdp_1906 <- 
+  read_csv("_DataPublic_/vdem/1906_1944/vdem_1906_1944_external.csv") |>
+  select(country_text_id, year, e_gdp, e_gdppc) |>
+  rename("gdp" = "e_gdp", "gdppc" = "e_gdppc")
+
+d_gdp_1945 |> print(n = 2) 
+```
+
+```{r}
+d_edu <- d |>
+  select(e_peaveduc, e_peedgini) |>
+  rename("edu_15" = "e_peaveduc", "edu_gini" = "e_peedgini")
+
+d_fh <- d |>
+  select(starts_with("e_fh")) |>
+  rename("fh_CivilLiberty" = "e_fh_cl", "fh_PoliticalRight" = "e_fh_pr",
+         "fh_RuleOfLaw" = "e_fh_rol", "fh_Status" = "e_fh_status")
+
+d_fh |> print(n = 2)
+```
+
+```{r}
+d_gdp_1945_2022 <- bind_rows(d_gdp, d_gdp_1945)
+d_gdp_1945_2022 |> print(n = 3)
+```
+
+```{r}
+unique(d_gdp_1945_2022$year) |> sort()
+```
+
+## Bind Rows
+
+```{r}
+d_gdp_1906_2022 <- bind_rows(d_gdp, d_gdp_1945, d_gdp_1906) # can take multiple data frames
+d_gdp_1906_2022 |> print(n = 3)
+```
+
+```{r}
+unique(d_gdp_1906_2022$year) |> sort()
+```
+
+## Bind Columns
+
+```{r}
+d_gdp_edu_fh <- bind_cols(d_gdp, d_edu, d_fh) # can take multiple data frames
+d_gdp_edu_fh |> print(n = 3)
+```
+
+```{r}
+names(d_gdp_edu_fh)
+```
+
+# Join Tables
+
+```{r}
+d_gdp_2000_2022 <- d |> filter(year %in% 2000:2022) |>
+  select(country_text_id, year, e_gdp) |> rename("gdp" = "e_gdp")
+
+d_gdppc_1984_2010 <- d |> filter(year %in% 1984:2010) |>
+  select(country_text_id, year, e_gdppc) |> rename("gdppc" = "e_gdppc")
+
+d_gdp_2000_2022 |> print(n = 2)
+```
+
+```{r}
+d_gdppc_1984_2010 |> print(n = 2)
+```
+
+## Left Join
+
+```{r}
+d_lj <- d_gdp_2000_2022 |> 
+  left_join(d_gdppc_1984_2010, by = c("country_text_id", "year"))
+
+d_lj |> print(n = 2)
+view(d_gdp_2000_2022)
+```
+
+```{r}
+unique(d_lj$year) |> sort()
+```
+
+## Right Join
+
+```{r}
+d_rj <- d_gdp_2000_2022 |> 
+  right_join(d_gdppc_1984_2010, by = c("country_text_id", "year"))
+
+d_rj |> print(n = 2)
+```
+
+```{r}
+unique(d_rj$year) |> sort()
+```
+
+## Inner Join (overlapped part)
+
+```{r}
+d_ij <- d_gdp_2000_2022 |> 
+  inner_join(d_gdppc_1984_2010, by = c("country_text_id", "year"))
+
+d_ij |> print(n = 2)
+
+unique(d_ij$year) |> sort()
+```
+
+## Full Join (all)
+
+```{r}
+d_fj <- d_gdp_2000_2022 |> 
+  full_join(d_gdppc_1984_2010, by = c("country_text_id", "year"))
+
+d_fj |> print(n = 2)
+
+unique(d_fj$year) |> sort()
+```
+
+## Semi Join
+
+```{r}
+d_sj <- d_gdp_2000_2022 |> 
+  semi_join(d_gdppc_1984_2010, by = c("country_text_id", "year"))
+
+d_sj |> print(n = 2)
+unique(d_sj$year) |> sort()
+```
+
+## Anti Join
+
+```{r}
+d_aj <- d_gdp_2000_2022 |> 
+  anti_join(d_gdppc_1984_2010, by = c("country_text_id", "year"))
+
+d_aj |> print(n = 2)
+unique(d_aj$year) |> sort()
+```
+
+# Join by variables with different variable names
+
+```{r}
+# I make an artificial example whose variable name of a matching 
+# identifier is different from d_gdp_2020_2022.
+d_gdppc_1984_2010_t <- d_gdppc_1984_2010 |> 
+  rename("country_id" = "country_text_id")
+```
+
+```{r}
+# Option 1: Rename the variables beforehand
+d_aj_t <- d_gdp_2000_2022 |> 
+  rename("country_id" = "country_text_id") |>
+  anti_join(d_gdppc_1984_2010_t, by = c("country_id", "year"))
+
+# Option 2: Specify the "by =" argument with a *named vector*
+d_aj_t_2 <- d_gdp_2000_2022 |> 
+  anti_join(d_gdppc_1984_2010_t, 
+            by = c("country_text_id" = "country_id", 
+                   "year" = "year"))
+```
+
+# Many to one join : Repeat!
+
+```{r}
+#Calculate each country’s average 1984-2010 GDP per capita and merge it with our annual GDP data from 2000 to 2022
+d_gdppc_1984_2010_avg <- d_gdppc_1984_2010 |> group_by(country_text_id) |>
+  summarise(gdppc_1984to2010 = mean(gdppc, na.rm = TRUE))
+d_gdppc_1984_2010_avg |> print(n = 2)
+```
+
+# Good habit : Add availability
+
+```{r}
+d_lj_ManyToOne <- d_gdp_2000_2022 |> 
+  left_join(d_gdppc_1984_2010_avg, by = "country_text_id")
+d_lj_ManyToOne |> print(n = 2)
+```
+
+```{r}
+# The d_gdp_2000_2022 data are from V-Dem
+d_gdp_2000_2022_t <- d_gdp_2000_2022 |> mutate(source_vdem = 1)
+
+# *Pretend* that the d_gdppc_1984_2010 data are from the World Bank
+d_gdppc_1984_2010_t <- d_gdppc_1984_2010 |> mutate(source_wb = 1)
+
+d_fj_habit <- d_gdp_2000_2022_t |> 
+  full_join(d_gdppc_1984_2010_t, by = c("country_text_id", "year"))
+
+d_fj_habit |> print(n = 3)
+```
+
+## Add prefix or Suffix to variable names
+
+```{r}
+d_gdp_2000_2022_rn <- d_gdp_2000_2022 |> 
+  rename("vdem_gdp" = "gdp")
+  # rename_at(vars(-c("country_text_id", "year")), ~str_c("vdem_", .))
+
+d_gdppc_1984_2010_rn <- d_gdppc_1984_2010 |> 
+  rename("wb_gdppc" = "gdppc")
+  # rename_at(vars(-c("country_text_id", "year")), ~str_c("wb_", .))
+
+d_fj_habit_2 <- d_gdp_2000_2022_rn |>
+  full_join(d_gdppc_1984_2010_rn, by = c("country_text_id", "year"))
+
+d_fj_habit_2 |> print(n = 3)
+```
+
+# Save outputs
+
+```{r}
+# Save to a .csv file
+write_csv(d_gdp_1945_2022, "Lecture6_Data_Wrangling_3_gdp_1945_2022.csv")
+
+# Save to a .rds file
+saveRDS(d_gdp_1945_2022, "Lecture6_Data_Wrangling_3_gdp_1945_2022.rds")
+```
+
+```{r}
+#read .csv file
+d_read_1 <- read.csv("Lecture6_Data_Wrangling_3_gdp_1945_2022.csv")
+```
+
+```{r}
+# Read a .rds file
+d_read_2 <- readRDS("Lecture6_Data_Wrangling_3_gdp_1945_2022.rds")
+```
