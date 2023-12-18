@@ -1,0 +1,221 @@
+---
+title: "POLI3148_In_class_exercise_2"
+author: "Yujia Tao"
+date: "`r Sys.Date()`"
+output:
+  pdf_document: default
+  word_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+# 1. Looking up the codebook
+
+## #i. What indicators regarding the quality of education are available in the V-Dem datasets?
+
+#There are two indicators regarding the quality of education available in the V-Dem data sets:
+
+#Education15+(E)(e_peaveduc), The average years of education in the total population aged 15 years and older.
+
+#Educational inequality,Gini(E)(e_peedgini), Gini coefficient of educational inequality estimated from average education data.
+
+```{r}
+library(tidyverse)
+```
+
+## #ii. What are the data's coverage?
+
+#Education15+
+
+#Educational inequality
+
+```{r}
+d<- read.csv("_DataPublic_/vdem/1984_2022/vdem_1984_2022_external.csv")
+```
+
+```{r}
+#Want: Countries covered in the data set
+d |> select(country_name) |> 
+  distinct()
+```
+
+```{r}
+#Want: Years covered in the data set
+d |> select(year)|> distinct()
+```
+
+## iii. Sources
+
+#Clio-Infra (2018), 'Clio-Infra Project (Database)'. URL: <http://www.clio-infra.eu/>
+
+#Foldvari,P.&vanLeeuwen,B (2014),'EducationalandincomeinequalityinEurope,ca.1870-2000', Cliometrica8(3),271--300. URL:<https://link.springer.com/content/pdf/10.1007%2Fs11698-013-0105-3.pdf>
+
+# 2. Subset by columns
+
+## #i.
+
+```{r}
+#Want: Create a dataset containing only the country-year identifiers and indicators of education quality.
+d_edu <- d|> select(country_name, country_id,year,e_peaveduc,e_peedgini)
+```
+
+## #ii.
+
+```{r}
+#Want:Rename the columns of education quality to make them informative.
+d_edu <- d_edu |>
+  rename("Edu15" = "e_peaveduc", "Inequality" = "e_peedgini", "Country" = "country_name", "ID" = "country_id", "Year" = "year")
+view(d_edu)
+```
+
+# 3.Subset by rows
+
+## #i.
+
+```{r}
+#Want:List 5 countries-years that have the highest education level among its population.
+d_edu|> slice_max(order_by= Edu15, n = 5)
+```
+
+## #ii.
+
+```{r}
+#Want:List 5 countries-years that have suffered from most severe inequality in education.
+d_edu|> slice_max(order_by=Inequality, n = 5)
+```
+
+# 4.Summarize the data
+
+## #i.Check data availability
+
+### #Missing data in Education 15+data set
+
+```{r}
+# Missing data of each country
+d_edu |>
+  mutate(Edu15_missing = as.numeric(is.na(Edu15)), .after = Edu15) |>
+  group_by(Country) |>
+  summarise(N_Edu15_missing = sum(Edu15_missing))
+```
+
+```{r}
+# Missing data of each year
+d_edu|> 
+  mutate(Edu15_missing = as.numeric(is.na(Edu15)), .after = Edu15) |>
+  group_by(Year) |>
+  summarise(N_Edu15_missing = sum(Edu15_missing))
+```
+
+### #Missing data in Educational Inequality data set
+
+```{r}
+# Missing data of each country
+d_edu |>
+  mutate(Inequality_missing = as.numeric(is.na(Inequality)), .after = Inequality) |>
+  group_by(Country) |>
+  summarise(N_Inequality_missing = sum(Inequality_missing))
+```
+
+```{r}
+# Missing data of each year
+d_edu|> 
+  mutate(Inequality_missing = as.numeric(is.na(Inequality)), .after = Inequality) |>
+  group_by(Year) |>
+  summarise(N_Inequality_missing = sum(Inequality_missing))
+```
+
+## #ii.Create two types of country-level indicators of education quality
+
+## #a.
+
+```{r}
+#Average level of education quality from 1984 to 2022
+d_edu |>
+  group_by(Country) |>
+  summarise(Edu15_average = mean(Edu15, na.rm = TRUE),
+            Inequality_average = mean(Inequality, na.rm = TRUE))
+```
+
+## #b.
+
+```{r}
+#Change of education quality from 1984 to 2022
+#Year-on-year change of education quality from 1984 to 2022
+#Education 15+
+d_edu |>
+  group_by(Country) |>
+  arrange(Year) |>
+  mutate(Edu15_yoy_change = Edu15 - lag(Edu15, n = 1)) |>
+  ungroup() |>
+  arrange(Country, Year)
+
+#Educational Inequality
+d_edu |>
+  group_by(Country) |>
+  arrange(Year) |>
+  mutate(Inequality_yoy_change = Inequality - lag(Inequality, n = 1)) |>
+  ungroup() |>
+  arrange(Country, Year)
+```
+
+```{r}
+# Country-year education quality with reference to that of 1984.
+
+#Education 15+
+d_edu |>
+  group_by(Country) |>
+  arrange(Year) |>
+  mutate(Edu15_over_1984 = Edu15 / first(Edu15)) |>
+  ungroup() |>
+  arrange(Country, Year)
+
+#Educational Inequality
+d_edu |>
+  group_by(Country) |>
+  arrange(Year) |>
+  mutate(Inequality_over_1984 = Inequality / first(Inequality)) |>
+  ungroup() |>
+  arrange(Country, Year)
+```
+
+```{r}
+# Education 15+ and Educational Inequality change: comparing 2022 with 1984
+d_edu |>
+  filter(Year >= 1984 & Year <= 2022) |>
+  group_by(Country) |>
+  arrange(Year) |>
+  summarise(Edu15_growth_2022_1984 = (last(Edu15) - first(Edu15)) / first(Edu15),
+            Inequality_2022_1984 = (last(Inequality) - first(Inequality)) / first(Inequality)) |>
+  ungroup() |>
+  arrange(Country)
+```
+
+## #iii. Examine the data and *briefly* discuss: Which countries perform the best and the worst in terms of education quality in the past four decades?
+
+#The country which perform the best in terms of education quality in the past four decades is United Kingdom, because it has 12.88 average years of education in the total population aged 15 years and older, which is the second longest among all countries in the data set. At the same time, Australia has the longest average years of education in the total population aged 15 years and older (12.94), but its average inequality coefficient is around 9.60 which is higher than 8.38.
+
+#In contrast, the country which perform the worst in terms of education quality in the past four decades is Burkina Faso, because it has lowest average level of education in its population, which is around 0.98, in the past four decades among all countries covered in the data set . Also, it suffered from highest average inequality level in education, which the coefficient reached 91.26, above all other countries covered in the data set.
