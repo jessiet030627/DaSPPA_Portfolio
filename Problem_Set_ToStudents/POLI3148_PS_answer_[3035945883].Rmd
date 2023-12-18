@@ -1,0 +1,834 @@
+---
+title: '[Tao Yujia 3035945883]'
+subtitle: Problem Set 1+2 (15% + 15%)
+date: "Due: 2023-12-3 23:59 (HKT)"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+  word_document: default
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, echo = FALSE, warning = FALSE)
+```
+
+## General Introduction
+
+In this Problem Set, you will apply data science skills to wrangle and visualize the replication data of the following research article:
+
+Cantú, F. (2019). The fingerprints of fraud: Evidence from Mexico's 1988 presidential election. *American Political Science Review*, *113*(3), 710-726.
+
+## Requirements and Reminders
+
+-   You are required to use **RMarkdown** to compile your answer to this Problem Set.
+
+-   Two submissions are required (via Moodle)
+
+    -   A `.pdf` file rendered by `Rmarkdown` that contains all your answer.
+
+    -   A compressed (in `.zip` format) R project repo. The expectation is that the instructor can unzip, open the project file, knitr your `.Rmd` file, and obtain the exact same output as the submitted `.pdf` document.
+
+-   The Problem Set is worth 30 points in total, allocated across 7 tasks. The point distribution across tasks is specified in the title line of each task. Within each task, the points are evenly distributed across sub-tasks. Bonus points (+5% max.) will be awarded to recognize exceptional performance.
+
+-   Grading rubrics: Overall, your answer will be evaluated based on its quality in three dimensions
+
+    -   Correctness and beauty of your outputs
+
+    -   Style of your code
+
+    -   Insightfulness of your interpretation or discussion
+
+-   Unless otherwise specified, you are required to use functions from the `tidyverse` package to complete this assignments.
+
+-   Fo some tasks, they may be multiple ways to achieve the same desired outcomes. You are encouraged to explore multiple methods. If you perform a task using multiple methods, do show it in your submission. You may earn bonus points for it.
+
+-   You are encouraged to use Generative AI such as ChatGPT to assist with your work. However, you will need to acknowledge it properly and validate AI's outputs. You may attach selected chat history with the AI you use and describe how it helps you get the work done. Extra credit may be rewarded to recognize creative use of Generative AI.
+
+-   This Problem Set is an individual assignment. You are expected to complete it independently. Clarification questions are welcome. Discussions on concepts and techniques related to the Problem Set among peers is encouraged. However, without the instructor's consent, sharing (sending and requesting) code and text that complete the entirety of a task is prohibited. You are strongly encouraged to use *CampusWire* for clarification questions and discussions.
+
+\clearpage
+
+## Background
+
+In 1998, Mexico had a close presidential election. Irregularities were detected around the country during the voting process. For example, when 2% of the vote tallies had been counted, the preliminary results showed the PRI's imminent defeat in Mexico City metropolitan area and a very narrow vote margin between PRI and FDN. A few minutes later, the screens at the Ministry of Interior went blank, an event that electoral authorities justified as a technical problem caused by an overload on telephone lines. The vote count was therefore suspended for three days, despite the fact that opposition representatives found a computer in the basement that continued to receive electoral results. Three days later, the vote count resumed, and soon the official announced PRI's winning with 50.4% of the vote.
+
+*What happened on that night and the following days? Were there electoral fraud during the election?* A political scientist, Francisco Cantú, unearths a promising dataset that could provide some clues. At the National Archive in Mexico City, Cantú discovered about 53,000 vote tally sheets. Using machine learning methods, he detected that a significant number of tally sheets were *altered*! In addition, he found evidence that the altered tally sheets were biased in favor of the incumbent party. In this Problem Set, you will use Cantú's replication dossier to replicate and extend his data work.
+
+Please read Cantú (2019) for the full story. And see Figure 1 for a few examples of altered (fraudulent) tallies.
+
+![Examples of altered tally sheets (reproducing Figure 1 of Cantú 2018)](image/fraud.png){width="260"}
+
+\clearpage
+
+## Task 0. Loading required packages (3pt)
+
+For Better organization, it is a good habit to load all required packages up front at the start of your document. Please load the all packages you use throughout the whole Problem Set here.
+
+```{r, echo=TRUE}
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+```
+
+\clearpage
+
+## Task 1. Clean machine classification results (3pt)
+
+Cantú applys machine learning models to 55,334 images of tally sheets to detect signs of fraud (i.e., alteration). The machine learning model returns results recorded in a table. The information in this table is messy and requires data wrangling before we can use them.
+
+### Task 1.1. Load classified images of tally sheets
+
+The path of the classified images of tally sheets is `data/classification.txt`. Your first task is loading these data onto R using a `tidyverse` function. Name it `d_tally`.
+
+Note:
+
+-   Although the file extension of this dataset is `.txt`, you are recommended to use the `tidyverse` function we use for `.csv` files to read it.
+
+-   Unlike the data files we have read in class, this table has *no column names*. Look up the documentation and find a way to handle it.
+
+-   There will be three columns in this dataset, name them `name_image`, `label`, and `probability`.
+
+Print your table to show your output.
+
+```{r, echo=TRUE}
+#Load the data 
+d_tally<-read.csv("data/classification.txt", header=FALSE)
+#Rename of colomns 
+d_tally<-d_tally|>
+       rename("name_image"= V1, "label"=V2, "probability"=V3)
+tibble(d_tally)
+```
+
+\clearpage
+
+### Note 1. What are in this dataset?
+
+Before you proceed, let me explain the meaning of the three variables.
+
+-   `name_image` contains the names of of the tallies' image files (as you may infer from the `.jpg` file extensions. They contain information about the locations where each of the tally sheets are produced.
+
+-   `label` is a machine-predicted label indicating whether a tally is fraudulent or not. `label = 1` means the machine learning model has detected signs of fraud in the tally sheet. `label = 0` means the machine detects no sign of fraud in the tally sheet. In short, `label = 1` means fraud; `label = 0` means no fraud.
+
+-   `probability` indicates the machine's certainty about its predicted `label` (explained above). It ranges from 0 to 1, where higher values mean higher level of certainty.
+
+Interpret `label` and `probability` carefully. Two examples can hopefully give you clues about their correct interpretation. In the first row, `label = 0` and `probability = 0.9991`. That means the machine thinks this tally sheet is NOT FRAUDULENT with a probability of 0.9991. Then, the probability that this tally sheet is fraudulent is `1 - 0.9991 = 0.0009`. Take another example, in the 11th row, `label = 1` and `probability = 0.935`. This means the machine thinks this tally sheet IS FRAUDULENT with a probability of 0.935. Then, the probability that it is NOT FRAUDULENT is `1 - 0.9354 = 0.0646`.
+
+\clearpage
+
+### Task 1.2. Clean columns `label` and `probability`
+
+As you have seen in the printed outputs, columns `label` and `probability` are read as `chr` variables when they are actually numbers. A close look at the data may tell you why --- they are "wrapped" by some non-numeric characters. In this task, you will clean these two variables and make them valid numeric variables. You are required to use `tidyverse` operations to for this task. Show appropriate summary statistics of `label` and `probability` respectively after you have transformed them into numeric variables.
+
+```{r, echo=TRUE}
+#Data cleaned
+d_tally<- d_tally|>
+       mutate(label = as.numeric(str_remove_all(label, "\\[|\\]")))
+d_tally<-d_tally|> 
+       mutate(probability = as.numeric(str_remove_all(probability,"\\[|\\]")))
+tibble(d_tally)
+```
+
+```{r}
+#Summary for label 
+summary(d_tally$label)
+#Summary for probability
+summary(d_tally$probability)
+```
+
+\clearpage
+
+### Task 1.3. Extract state and district information from `name_image`
+
+As explained in the note, the column `name_image`, which has the names of tally sheets' images, contains information about locations where the tally sheets are produced. Specifically, the first two elements of these file names indicates the **states'** and districts' identifiers respectively, for example, `name_image = "Aguascalientes_I_2014-05-26 00.00.10.jpg"`. It means this tally sheet is produced in state **`Aguascalientes`**, district **`I`**. In this task, you are required to obtain this information. Specifically, create two columns named `state` and `district` as state and district identifiers respectively. You are required to use `tidyverse` functions to perform the task.
+
+```{r, echo=TRUE}
+d_tally <- d_tally %>%
+  mutate(state = str_extract(name_image, "^[^_]+"),
+         district = str_extract(name_image, "(?<=_)[A-Za-z]+"))
+
+tibble(d_tally)
+```
+
+\clearpage
+
+### Task 1.4. Re-code a state's name
+
+One of the states (in the newly created column `state`) is coded as "`Estado de Mexico`." The researchers decide that it should instead re-coded as "**`Edomex`**." Please use a `tidyverse` function to perform this task.
+
+Hint: Look up functions `ifelse` and `case_match`.
+
+```{r, echo=TRUE}
+d_tally <- d_tally %>%
+  mutate(state = case_when(
+    state == "Estado de Mexico" ~ "Edomex",
+    TRUE ~ state
+  ))
+
+tibble(d_tally)
+```
+
+\clearpage
+
+### Task 1.5. Create a *probability of fraud* indicator
+
+As explained in Note 1, we need to interpret label and probability with caution, as the meaning of probability is conditional on the value of label. To avoid confusion in the analysis, your next task is to create a column named fraud_proba which indicates the probability that a tally sheet is is fraudulent. After you have created the column, drop the label and probability columns.
+
+Hint: Look up the ifelse function and the case_when function (but you just need either one of them).
+
+```{r, echo=TRUE}
+#Creation of the new column "fraud_proba"
+d_tally <- d_tally |>
+  mutate(fraud_proba = ifelse(label == 1, probability, 1 - probability))
+#Dropping the label and probability columns
+d_tally <- select(d_tally, -label, -probability)
+tibble(d_tally)
+```
+
+\clearpage
+
+### Task 1.6. Create a binary *fraud* indicator
+
+In this task, you will create a binary indicator called `fraud_bin` in indicating whether a tally sheet is fraudulent. Following the researcher's rule, we consider a tally sheet fraudulent only when the machine thinks it is at least 2/3 likely to be fraudulent. That is, `fraud_bin` is set to TRUE when `fraud_proba` is greater to `2/3` and is FALSE otherwise.
+
+```{r, echo=TRUE}
+d_tally<- d_tally |>
+  mutate(fraud_bin = ifelse(fraud_proba >= 2/3, TRUE, FALSE))
+tibble(d_tally)
+```
+
+\clearpage
+
+## Task 2. Visualize machine classification results (3pt)
+
+In this section, you will visualize the `tally` dataset that you have cleaned in Task 1. Unless otherwise specified, you are required to use the `ggplot` packages to perform all the tasks.
+
+### Task 2.1. Visualize distribution of `fraud_proba`
+
+How is the predicted probability of fraud (`fraud_proba`) distributed? Use two methods to visualize the distribution. Remember to add informative labels to the figure. Describe the plot with a few sentences.
+
+```{r, echo=TRUE, fig.width=5, fig.height=4, out.width="50%", fig.align='center'}
+#Method1:Histogram 
+ggplot(d_tally, aes(x = fraud_proba)) +
+  geom_histogram(fill = "steelblue", color = "white") +
+  labs(title = "Distribution of Predicted Probability of Fraud",
+       x = "Predicted Probability of Fraud",
+       y = "Count")
+```
+
+Description: This histogram shows that those tally sheets with 0 probability of fraudulent has the highest frequency, reaching around 17500 counts.The second highest count is 7500, which stands for the count of tally sheets with the probability of fraudulent equals to 1. The count of the tally sheets with probability of fraudulent between 0 and 1 is relatively lower than fraud_proba = 0 or 1. The fluctuations of count remain between 3750 and 625, and the distribution is uniform.
+
+```{r}
+#Method2:Density 
+ggplot(d_tally, aes(x = fraud_proba)) +
+  geom_density(fill = "steelblue", alpha = 0.5) +
+  labs(title = "Distribution of Predicted Probability of Fraud",
+       x = "Predicted Probability of Fraud",
+       y = "Density")
+```
+
+Description: The density plot has a shape similar with the histogram. The density of tally sheets with probability of fraudulent close to 0 is the highest at around 3.6, and those tally sheets with the probability of fraudulent close to 1, the density is 1.8. Also, the count of tally sheets with probability of fraud between 0 and1 is relatively lower and the distribution is uniform without large fluctuations.
+
+\clearpage
+
+### Task 2.2. Visualize distribution of `fraud_bin`
+
+How many tally sheets are fraudulent and how many are not? We may answer this question by visualizing the binary indicator of tally-level states of fraud. Use at least two methods to visualize the distribution of `fraud_bin`. Remember to add informative labels to the figure. Describe your plots with a few sentences.
+
+```{r, echo=TRUE, fig.width=5, fig.height=4, out.width="50%", fig.align='center'}
+# Method1:Bar chart 
+ggplot(d_tally, aes(x = fraud_bin)) +
+  geom_bar(fill = "steelblue", color = "white") +
+  labs(title = "Distribution of Tally-Level States of Fraud",
+       x = "Fraudulent",
+       y = "Count") +
+  scale_x_discrete(labels = c("Not Fraud", "Fraud"))
+```
+
+Description: The bar chart shows the two categories as "fraud" and "not fraud",there is around 17000 tally sheets are identified as fraud. Also, the count of tally sheetes which are identified as not fraud is more than twice of those identified as fraud.
+
+```{r}
+#Method2:Pie chart 
+ggplot(d_tally, aes(x = "", fill = fraud_bin)) +
+  geom_bar(width = 1, color = "white") +
+  coord_polar("y", start = 0) +
+  labs(title = "Distribution of Tally-Level States of Fraud",
+       fill = "Fraudulent",
+       x = NULL,
+       y = NULL)
+```
+
+Description: The pie chart vividly shows that there is around 1/3 of the tally sheets are identified as fraud, and the left tally sheets are not.
+
+The figure below serve as a reference. Feel free to try alternative approach(es) to make your visualization nicer and more informative.
+
+\clearpage
+
+### Task 2.3. Summarize prevalence of fraud by state
+
+Next, we will examine the between-state variation with regards to the prevalence of election fraud. In this task, you will create a new object that contains two state-level indicators regarding the prevalence of election fraud: The count of fraudulent tallies and the proportion of fraudulent tallies.
+
+```{r, echo=TRUE}
+d_state_fraud <- d_tally |>
+
+group_by(state) |>
+
+summarize(n_fraud = sum(fraud_bin==TRUE),
+
+          fraud_prop = (sum(fraud_bin==TRUE))/n())
+
+tibble(d_state_fraud)
+```
+
+\clearpage
+
+### Task 2.4. Visualize frequencies of fraud by state
+
+Using the new data frame created in Task 2.3, please visualize the *frequencies* of fraudulent tallies of every state. Describe the key takeaway from the visualization with a few sentences.
+
+Feel free to try alternative approach(es) to make your visualization nicer and more informative.
+
+```{r}
+ggplot(d_state_fraud, aes(x = state, y = n_fraud)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  labs(x = "State", y = "Count of Fraudulent Tallies") +
+  ggtitle("Count of Fraudulent Tallies by State") +
+  coord_flip() 
+```
+
+Description: All of the states have tally sheets identitified as fraud. The tally sheets from Veracruz has the most counts of fraudulent, and the count reaches 2250. In contrast, Quintana Roo, Hidalgo, Aguascalientes, Colima and Baja California Sur have much less fraud tally sheets, which are around 100.
+
+\clearpage
+
+### Task 2.5. Visualize proportions of fraud by state
+
+Using the new data frame created in Task 2.3, please visualize the *proportion of* of fraudulent tallies of every state. Describe the key takeaway from the visualization with a few sentences.
+
+Feel free to try alternative approach(es) to make your visualization nicer and more informative.
+
+```{r}
+ggplot(d_state_fraud, aes(x = state, y = fraud_prop)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  labs(x = "State", y = "Proportion of Fraudulent Tallies") +
+  ggtitle("Proportion of Fraudulent Tallies by State")+
+  coord_flip()+
+  geom_hline(yintercept = 0.5, color = "red", linetype = "dashed", size = 1)+
+   annotate("text", x = 10, y = 0.45, label = "Proportion = 0.5", hjust = -0.1, color = "red")+
+   geom_hline(yintercept = 0.1, color = "red", linetype = "dashed", size = 1)+
+   annotate("text", x = 10, y = 0.1, label = "Proportion = 0.1", hjust = -0.1, color = "red")
+```
+
+Description: The proportion of fraudulent tallies in ten states reaches 0.5, as the right red line splitted. The state with lowest proportion of fraudulent tallies is Distrito, and the left red line shows that there are three states with proportion of fraudulent tallies under 0.1. The left states have the proportion of fraudulent tallies between 0.1 and 0.5.
+
+\clearpage
+
+### Task 2.6. Visualize both proportions & frequencies of fraud by state
+
+Create data visualization to show BOTH the *proportions* and *frequencies* of fraudulent tally sheets by state in one figure. Include annotations to highlight states with the highest level of fraud. Add informative labels to the figure. Describe the takeaways from the figure with a few sentences.
+
+```{r, echo=TRUE}
+ggplot(d_state_fraud, aes(x = state)) +
+  geom_bar(aes(y = n_fraud, fill = "Fraud Count"), stat = "identity", width = 0.5) +
+  geom_line(aes(y = fraud_prop * max(d_state_fraud$n_fraud), group = 1, color = "Fraud Proportion"), size = 1) +
+  geom_point(aes(y = fraud_prop * max(d_state_fraud$n_fraud), color = "Fraud Proportion"), size = 3) +
+  scale_y_continuous(sec.axis = sec_axis(~./max(d_state_fraud$n_fraud), name = "Fraud Proportion")) +
+  scale_fill_manual(values = "steelblue") +
+  scale_color_manual(values = "red") +
+  labs(x = "State",
+       y = "Fraud Count",
+       color = "Fraud Proportion",
+       fill = "Fraud Count") +
+  theme_minimal()+
+theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        axis.text.x.bottom = element_text(margin = margin(t = 10)))
+```
+
+Description: The fraud count and fraud proportion of states have similar shape and trend, but there are still some points from fraud proportion does not match the fraud count. For example, the state withhighest fraud count is Veracruz, but the its fraud proportion is smaller than that of Tlaxcala. Although Colima and Quitana has very few fraud count, both of them do not have the lowest fraud proportion. Fraud proportion is calculated based on the number of sheets. Less fraud count does not mean less fraudulent rate.
+
+\clearpage
+
+## Task 3. Clean vote return data (3pt)
+
+Your next task is to clean a different dataset from the researchers' replication dossier. Its path is `data/Mexican_Election_Fraud/dataverse/VoteReturns.csv`. This dataset contains information about vote returns recorded in every tally sheet. This dataset is essential for the replication of Figure 4 in the research article.
+
+### Task 3.1. Load vote return data
+
+Load the dataset onto your R environment. Name this dataset `d_return`. Show summary statistics of this dataset and describe the takeaways using a few sentences.
+
+```{r, echo=TRUE}
+d_return<- read.csv("data/VoteReturns.csv")
+summary(d_return)
+tibble(d_return)
+```
+
+\clearpage
+
+### Note 2. What are in this dataset?
+
+This table contains a lot of different variables. The researcher offers no comprehensive documentation to tell us what every column means. For the sake of this problem set, you only need to know the meanings of the following columns:
+
+-   `foto` is an identifier of the images of tally sheets in this dataset. We will need it to merge this dataset with the `d_tally` data.
+
+-   `edo` contains the names of states.
+
+-   `dto` contains the names of districts (in Arabic numbers).
+
+-   `salinas`, `clouthier`, and `ibarra` contain the counts of votes (as recorded in the tally sheets) for presidential candidates Salinas (PRI), Cardenas (FDN), and Clouthier (PAN). In addition, the summation of all three makes the total number of **presidential votes**.
+
+-   `total` contains the total number of **legislative votes**.
+
+\clearpage
+
+### Task 3.2. Recode names of states
+
+A state whose name is `Chihuahua` is mislabelled as `Chihuhua`. A state whose name is currently `Edomex` needs to be recoded to `Estado de Mexico`. Please re-code the names of these two states accordingly.
+
+```{r, echo=TRUE}
+d_return <- d_return |>
+  mutate(edo = case_when(
+    edo == "Chihuhua" ~ "Chihuahua",
+    edo == "Edomex" ~ "Estado de Mexico",
+    TRUE ~ edo
+  ))
+```
+
+\clearpage
+
+### Task 3.3. Recode districts' identifiers
+
+Compare how districts' identifiers are recorded differently in the tally (`d_tally`) from vote return (`d_return`) datasets. Specifically, in the `d_tally` dataset, `district` contains Roman numbers while in the `d_return` dataset, `dto` contains Arabic numbers. Recode districts' identifiers [in the `d_return` dataset]{.underline} to match those in the `d_tally` dataset. To complete this task, first summarize the values of the two district identifier columns in the two datasets respectively to verify the above claim. Then do the requested conversion.
+
+```{r, echo=TRUE}
+#Summarize the district identifiers in d_tally
+d_tally_summary<- d_tally|>
+  group_by(district) |>
+  summarize(count = n())
+
+# Summarize district identifiers in d_return
+d_return_summary<- d_return|>
+  group_by(dto) |>
+  summarize(count = n())
+
+# View the summaries
+d_tally_summary
+d_return_summary
+```
+
+```{r}
+d_return <- d_return |>
+  mutate(dto = case_when(
+    dto == 1 ~ "I",
+    dto == 2 ~ "II",
+    dto == 3 ~ "III",
+    dto == 4 ~ "IV",
+    dto == 5 ~ "V",
+    dto == 6 ~ "VI",
+    dto == 7 ~ "VII",
+    dto == 8 ~ "VIII",
+    dto == 9 ~ "IX",
+    dto == 10 ~ "X",
+    dto == 20 ~ "XX",
+    dto == 30 ~ "XXX",
+    dto == 40 ~ "XL",
+    dto == 50 ~ "L",
+    dto == 60 ~ "LX",
+    dto == 70 ~ "LXX",
+    dto == 80 ~ "LXXX",
+    dto == 90 ~ "XC",
+    dto == 100 ~ "C",
+    dto == 200 ~ "CC",
+    dto == 300 ~ "CCC",
+    dto == 400 ~ "CD",
+    dto == 500 ~ "D",
+    dto == 600 ~ "DC",
+    dto == 700 ~ "DCC",
+    dto == 800 ~ "DCCC",
+    dto == 900 ~ "CM",
+    dto == 1000 ~ "M",
+    dto == 2000 ~ "MM",
+    dto == 3000 ~ "MMM",
+    TRUE ~ NA_character_
+  ))
+```
+
+```{r}
+tibble(d_return)
+```
+
+\clearpage
+
+### Task 3.4. Create a `name_image` identifier for the `d_return` dataset
+
+In the `d_return` dataset, create a column named `name_image` as the first column. The column concatenate values in the three columns: `edo`, `dto`, and `foto` with an underscore `_` as separators.
+
+```{r, echo=TRUE}
+d_return <- d_return |>
+  mutate(name_image = paste(edo, dto, foto, sep = "_")) |>
+  select(name_image, everything())
+```
+
+```{r}
+tibble(d_return)
+```
+
+\clearpage
+
+### Task 3.5. Wrangle the `name_image` column in two datasets
+
+As a final step before merging `d_return` and `d_tally`, you are required to perform the following data wrangling. For the `name_image` column in BOTH `d_return` and `d_tally`:
+
+-   Convert all characters to lower case.
+
+-   Remove ending substring `.jpg`.
+
+```{r, echo=TRUE}
+# Convert name_image column to lowercase in d_return
+d_return$name_image <- tolower(d_return$name_image)
+
+# Remove ".jpg" ending substring in d_return
+d_return$name_image <- sub("\\.jpg$", "", d_return$name_image)
+
+# Convert name_image column to lowercase in d_tally
+d_tally$name_image <- tolower(d_tally$name_image)
+
+# Remove ".jpg" ending substring in d_tally
+d_tally$name_image <- sub("\\.jpg$", "", d_tally$name_image)
+```
+
+\clearpage
+
+### Task 3.6 Join classification results and vote returns
+
+After you have successfully completed all the previous steps, join `d_return` and `d_tally` by column `name_image`. This task contains two part. First, use appropriate `tidyverse` functions to answer the following questions:
+
+-   How many rows are in `d_return` but not in `d_tally`? Which states and districts are they from?
+
+-   How many rows are in `d_tally` but not in `d_return`? Which states and districts are they from?
+
+```{r, echo=TRUE}
+#Number of rows only in d_return
+rows_only_in_d_return <- anti_join(d_return, d_tally)
+num_rows_only_in_d_return <- nrow(rows_only_in_d_return)
+
+#States and districts 
+states_and_districts_only_in_d_return <- select(rows_only_in_d_return, edo, dto)
+
+num_rows_only_in_d_return
+states_and_districts_only_in_d_return
+```
+
+```{r}
+#Number of rows only in d_tally
+rows_only_in_d_tally <- anti_join(d_tally, d_return)
+num_rows_only_in_d_tally <- nrow(rows_only_in_d_tally)
+
+#Which rows and districts? 
+states_and_districts_only_in_d_tally <- select(rows_only_in_d_tally, state, district)
+
+num_rows_only_in_d_tally
+states_and_districts_only_in_d_tally
+```
+
+Second, create a dataset call `d` by joining `d_return` and `d_tally` by column `name_image`. `d` contains rows whose identifiers appear in *both* datasets and columns from *both* datasets.
+
+```{r, echo=TRUE}
+d <- inner_join(d_tally, d_return, by = "name_image")
+```
+
+```{r}
+tibble(d)
+```
+
+\clearpage
+
+## Task 4. Visualize distributions of fraudulent tallies across candidates (6pt)
+
+In this task, you will visualize the distributions of fraudulent tally sheets across three presidential candidates: **Sarinas (PRI)**, **Cardenas (FDN)**, and **Clouthier (PAN)**. The desired output of is reproducing and extending Figure 4 in the research article (Cantu 2019, pp. 720).
+
+### Task 4.1. Calculate vote proportions of Salinas, Clouthier, and Cardenas
+
+Before getting to the visualization, you should first calculate the proportion of votes (among all) received by the three candidates of interest. As additional background information, there are two more presidential candidates in this election, whose votes received are recorded in `ibarra` and `castillo` respectively. Please perform the tasks in the following two steps on the `d` dataset:
+
+-   Create a new column named `total_president` as an indicator of the total number of votes of the 5 presidential candidates.
+
+-   Create three columns `salinas_prop`, `cardenas_prop`, and `clouthier_prop` that indicate the proportions of the votes these three candidates receive respectively.
+
+```{r, echo=TRUE}
+d <- d |>
+  mutate(total_president = salinas + cardenas + clouthier + ibarra + castillo)
+```
+
+```{r}
+d <- d |>
+  mutate(salinas_prop = salinas / total_president,
+         cardenas_prop = cardenas / total_president,
+         clouthier_prop = clouthier / total_president)
+```
+
+```{r}
+tibble(d)
+```
+
+\clearpage
+
+### Task 4.2. Replicate Figure 4
+
+Based on all the previous step, reproduce Figure 4 in Cantu (2019, pp. 720).
+
+```{r, echo=TRUE}
+ggplot(d, aes(x = salinas_prop)) +
+  geom_density(aes(fill = fraud_bin), alpha = 0.5) +
+  scale_fill_manual(values = c("blue", "red"), labels = c("Tallies identified with no alterations", "Tallies identified with alterations")) +
+  labs(title = "Salinas(PRI)",
+       x = "Vote Share",
+       y = "Density",
+       fill = "Category") 
+```
+
+```{r}
+ggplot(d, aes(x = cardenas_prop)) +
+  geom_density(aes(fill = fraud_bin), alpha = 0.5) +
+  scale_fill_manual(values = c("blue", "red"), labels = c("Tallies identified with no alterations", "Tallies identified with alterations")) +
+  labs(title = "Cardenas(FDN)",
+       x = "Vote Share",
+       y = "Density",
+       fill = "Category")
+```
+
+```{r}
+ggplot(d, aes(x = clouthier_prop)) +
+  geom_density(aes(fill = fraud_bin), alpha = 0.5) +
+  scale_fill_manual(values = c("blue", "red"), labels = c("Tallies identified with no alterations", "Tallies identified with alterations")) +
+  labs(title = "Clouthier(PAN)",
+       x = "Vote Share",
+       y = "Density",
+       fill = "Category") 
+```
+
+Note: Your performance in this task will be mainly evaluated based on your output's similarity with the original figure. Pay attention to the details. For your reference, below is a version created by the instructor.
+
+\clearpage
+
+### Task 4.3. Discuss and extend the reproduced figure
+
+Referring to your reproduced figures and the research articles, in what way is the researcher's argument supported by this figure? Make an alternative visualization design that can substantiate and even augment the current argument. After you have shown your alternative design, in a few sentences, describe how your design provides visual aid as effectively as or more effectively than the original figure.
+
+**Note:** Feel free to make *multiple* alternative designs to earn bonus credits. However, please be selective. Only a design with major differences from the existing ones can be counted as an alternative design.
+
+Discussion: The three figures for three candidates show an interesting phenomenon that the vote share and density of identification of Cardenas and Clouthier has similar characteristics. Their high density of tallies identified with alterations only occupy a small vote share, which is almost 0, and as vote share increases, the density of fraudulent tallies reduces. In contrast, Salinas figure shows that as the vote share increases, the density of tallies identified with alterations increase, but tallies identified as without alterations decrease. This supports the researcher's argument that Salinas' votes has fraudulent problems.
+
+```{r, echo=TRUE}
+#Box-plot
+d |> ggplot(aes(x = salinas_prop, y = fraud_bin)) + 
+  geom_boxplot() +
+  labs(title = "Salinas(PRI) ", x = "Vote Share of Salinas", y = "Tallies identified as with or without alterations")
+```
+
+```{r}
+d |> ggplot(aes(x = cardenas_prop, y = fraud_bin)) + 
+  geom_boxplot() +
+  labs(title = "Cardenas(FDN) ", x = "Vote Share of Cardenas", y = "Tallies identified as with or without alterations")
+```
+
+```{r}
+d |> ggplot(aes(x = clouthier_prop, y = fraud_bin)) + 
+  geom_boxplot() +
+  labs(title = "Clouthier(PAN) ", x = "Vote Share of Clouthier", y = "Tallies identified as with or without alterations")
+```
+
+Description: The box-plots show candidates' vote share of tallies identified as with or without alterations more obviously than the density figure. Both Cardenas and Clouthier 's vote share median of tallies identified as with alterations are less than vote share median of tallies identified as without alternations. However, Salinas' vote share median of tallies identified as with alterations is higher than the vote share median of tallies identified as without alterations. Such phenomenon reveals that Salinas has larger vote share of tallies identified as with alterations than the other two candidates.
+
+**Note:** Feel free to suggest *multiple* alternative designs to earn bonus credits. However, please be selective. Only a design with major differences from the existing ones can be counted as an alternative design.
+
+\clearpage
+
+## Task 5. Visualize the discrepancies between presidential and legislative Votes (6pt)
+
+In this task, you will visualize the differences between the number of presidential votes across tallies. The desired output of is reproducing and extending Figure 5 in the research article (Cantu 2019, pp. 720).
+
+### Task 5.1. Get district-level discrepancies and fraud data
+
+As you might have noticed in the caption of Figure 5 in Cantu (2019, pp. 720), the visualized data are aggregated to the *district* level. In contrast, the unit of analysis in the dataset we are working with, `d`, is *tally*. As a result, the first step of this task is to aggregate the data. Specifically, please aggregate `d` into a new data frame named `sum_fraud_by_district`, which contains the following columns:
+
+-   `state`: Names of states
+
+-   `district`: Names of districts
+
+-   `vote_president`: Total numbers of presidential votes
+
+-   `vote_legislature`: Total numbers of legislative votes
+
+-   `vote_diff`: Total number of presidential votes minus total number of legislative votes
+
+-   `prop_fraud`: Proportions of fraudulent tallies (hint: using `fraud_bin`)
+
+```{r, echo=TRUE}
+sum_fraud_by_district <- d |>
+  group_by(state,district) |>
+  summarize(vote_president = sum(total_president),
+            vote_legislature = sum(total),
+            vote_diff = sum(total_president) - sum(total),
+            prop_fraud = (sum(fraud_bin==TRUE))/n())|>
+ungroup()
+
+tibble(sum_fraud_by_district)
+```
+
+\clearpage
+
+### Task 5.2. Replicate Figure 5
+
+Based on all the previous step, reproduce Figure 5 in Cantu (2019, pp. 720).
+
+```{r, echo=TRUE}
+ggplot(sum_fraud_by_district, aes(x = vote_legislature, y = vote_president, size = prop_fraud)) +
+  geom_point(color = "blue", alpha = 0.5) +
+  labs(title = "Total Number of District Votes
+of the Candidates. 
+Mexico, 1988 Presidential and Legislative Elections. Mexico,1988",
+       x = "Total legislative votes",
+       y = "Total presidential votes",
+       size = "Rate of Tallies with Alterations") +
+  scale_size_continuous(range = c(1, 10))
+```
+
+**Note 1:** Your performance in this task will be mainly evaluated based on your output's similarity with the original figure. Pay attention to the details.
+
+**Note 2:** The instructor has detected some differences between the above figure with Figure 5 on the published article. Please use the instructor's version as your main benchmark.
+
+\clearpage
+
+### Task 5.3. Discuss and extend the reproduced figure
+
+Referring to your reproduced figures and the research articles, in what way is the researcher's argument supported by this figure? Make an alternative visualization design that can substantiate and even augment the current argument. After you have shown your alternative design, in a few sentences, describe how your design provides visual aid as effectively as or more effectively than the original figure.
+
+**Note:** Feel free to make *multiple* alternative designs to earn bonus credits. However, please be selective. Only a design with major differences from the existing ones can be counted as an alternative design.
+
+Discussion: This figure reveals the difference between the presidential and legislative votes in different districts. Those large bubbles stand for the high proportions of tallies with alterations; thus this supports the argument that the arggression fraud is severe in many districts, and the most obvious reflection is that the number of votes from a district between presidential and legislative elections are different. At the same time, the difference in votes can be very large.
+
+```{r, echo=TRUE}
+#Bar chart 
+ggplot(sum_fraud_by_district, aes(x = state, y = vote_diff)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  labs(title = "Difference in presidential and legislative votes in different states", 
+       x= "State",
+       y= "Difference of votes",
+       fill= "difference")+
+  theme_minimal()+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Description: This bar chart chart shows the difference between the presidential and legislative votes in all states. Veracruz has the largest difference. It is clearer than the bubble plot to show the magnitude of the difference between two types of votes, because the bubble size is difficult to be identified when they overlap together.
+
+\clearpage
+
+## Task 6. Visualize the spatial distribution of fraud (6pt)
+
+In this final task, you will visualize the spatial distribution of electoral fraud in Mexico. The desired output of is reproducing and extending Figure 3 in the research article (Cantu 2019, pp. 720).
+
+### Note 3. Load map data
+
+As you may recall, map data can be stored and shared in **two** ways. The simpler format is a table where each row has information of a point that "carves" the boundary of a geographic unit (a Mexican state in our case). In this type of map data, a geographic unit is is represented by multiple rows. Alternatively, a map can be represented by a more complicated and more powerful format, where each geographic unit (a Mexican state in our case) is represented by an element of a `geometry` column. For this task, I provide you with a state-level map of Mexico represented by both formats respectively.
+
+Below the instructor provide you with the code to load the maps stored under the two formats respectively. Please run them before starting to work on your task.
+
+```{r, echo=TRUE, results='hide'}
+map_mex <- read_csv("data/map_mexico/map_mexico.csv")
+
+library(sf)
+map_mex_sf <- st_read("data/map_mexico/shapefile/gadm36_MEX_1.shp")
+map_mex_sf <- st_simplify(map_mex_sf, dTolerance = 100)
+```
+
+**Bonus question**: Explain the operations on `map_mex_sf` in the instructor's code above.
+
+**Note**: The map (sf) data we use are from <https://gadm.org/download_country_v3.html>.
+
+\clearpage
+
+### Task 6.1. Reproduce Figure 3 with `map_mex`
+
+In this task, you are required to reproduce Figure 3 with the `map_mex` data.
+
+Note:
+
+-   Your performance in this task will be mainly evaluated based on your output's similarity with the original figure. Pay attention to the details. For your reference, below is a version created by the instructor.
+
+-   Hint: Check the states' names in the map data and the electoral fraud data. Recode them if necessary.
+
+```{r,echo=TRUE}
+map_mex <- map_mex |> 
+     rename("state"="state_name")
+```
+
+```{r}
+map_mex<- map_mex|>
+  select(state,long,lat)
+```
+
+```{r}
+d_prop<- d|> select(state,fraud_proba)
+merged_data<- 
+       left_join(d_prop,map_mex, by="state")
+```
+
+```{r}
+#merged_data_no_na <- na.omit(merged_data[, c("long", "lat", "fraud_proba")])
+
+#merged_sf <- st_as_sf(merged_data_no_na, coords = c("long", "lat"), crs = 4326)
+
+# Plot the merged data with the map
+#ggplot() +
+  #geom_sf(data = merged_sf, aes(fill = fraud_proba), color = "black") +
+  #scale_fill_gradient(low = "white", high = "red", na.value = "gray") +
+  #theme_minimal()
+```
+
+\clearpage
+
+### Task 6.2. Reproduce Figure 3 with `map_mex_sf`
+
+In this task, you are required to reproduce Figure 3 with the `map_mex` data.
+
+Note:
+
+-   Your performance in this task will be mainly evaluated based on your output's similarity with the original figure. Pay attention to the details. For your reference, below is a version created by the instructor.
+
+-   Hint: Check the states' names in the map data and the electoral fraud data. Recode them if necessary.
+
+```{r, echo=TRUE}
+map_mex_sf <- map_mex_sf %>%
+  rename("state" = "NAME_1")
+```
+
+```{r}
+map_mex_sf <- map_mex_sf |>
+  select(state, geometry)
+```
+
+```{r}
+merged_data_sf <-
+  left_join(d_state_fraud, map_mex_sf, by = "state") |>
+  rename(Year = 2)
+
+merged_data_sf |>
+  ggplot() +
+  geom_sf(data = merged_data_sf$geometry, aes(fill = merged_data_sf$fraud_prop)) +
+  scale_fill_gradient(low = "white", high = "black", name = "Proportion of altered tallies ") +
+  labs(title = " Rates of Tallies Classified as Altered by State") +
+  theme_classic()
+```
+
+\clearpage
+
+### Task 6.3. Discuss and extend the reproduced figures
+
+Referring to your reproduced figures and the research articles, in what way is the researcher's argument supported by this figure? Make an alternative visualization design that can substantiate and even augment the current argument. After you have shown your alternative design, in a few sentences, describe how your design provides visual aid as effectively as or more effectively than the original figure.
+
+**Note:** Feel free to make *multiple* alternative designs to earn bonus credits. However, please be selective. Only a design with major differences from the existing ones can be counted as an alternative design.
+
+Discussion:
+
+This figure shows that the most of the tallies with alterations are placed in the south of the country.
